@@ -4,7 +4,6 @@ import discord
 import asyncio
 import time
 
-                                                       #                  #                 #                                                  #
 webhook_url = 'https://canary.discord.com/api/webhooks/2222222222222222222/xxxxxxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' # Discord Webhook
 service_id = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' # Service-id 
 api_token = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' # API token
