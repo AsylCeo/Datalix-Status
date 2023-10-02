@@ -1,127 +1,91 @@
-# Server Status Monitoring Script
+# Server Status Monitor with Discord Notifications
 
+This Python script allows you to monitor the status of a server and receive updates through Discord webhooks. It utilizes the AIOHTTP library for asynchronous HTTP requests, providing an easy way to keep track of important server information.
 
-This script enables continuous monitoring of your remote server's status through the Datalix API. In case of status changes, instant notifications are sent via a Discord webhook, ensuring you're always kept informed.
+---
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Features](#features)
-- [Customization](#customization)
-- [Example Notification](#example-notification)
-- [Why This Script?](#why-this-script)
-- [How It Works](#how-it-works)
-- [Example Use Case](#example-use-case)
-- [Error Handling](#error-handling)
-- [Notes](#notes)
-- [License](#license)
+1. [**Overview**](#overview)
+2. [**Installation**](#installation)
+3. [**Configuration**](#configuration)
+4. [**Usage**](#usage)
+5. [**Customization**](#customization)
+6. [**License**](#license)
+7. [**Disclaimer**](#disclaimer)
 
-## Prerequisites
+---
 
-- **Python 3.x**
-- Required Python libraries: `json`, `requests`, `discord`, `asyncio`
-- Product hosted at https://datalix.de/a/asylceo/
+## Overview
 
-## Setup
+This script is designed to monitor server status and send notifications via Discord webhooks. It is particularly useful for administrators who need real-time information about their server.
 
-1. Clone or download this repository.
-2. Install the required libraries using the command:
-   ```bash
-   pip3 install discord requests
+## Installation
+
+1. **Install Python and Pip**:
+
+   Ensure that Python and Pip are installed on your system.
+
+2. **Install Dependencies**:
+
+   Open the command line and enter the following command:
+
    ```
-3. Open the script (`main.py`) in a text editor like Visual Studio Code (VSC).
-4. Customize the configuration variables by replacing the following placeholders:
-   - `webhook_url`: Your Discord webhook URL.
-   - `service_id`: Your Datalix service ID, also replace it in line 96.
-   - `api_token`: Your Datalix API token, also replace it in line 96.
-   - Customize `status_descriptions` to tailor status descriptions.
+   pip install aiohttp
+   ```
 
 ## Configuration
 
-Within the script, you'll find various configuration options:
+- Open the `main.py` file.
 
-- `webhook_url`: The Discord webhook URL for sending notifications.
-- `service_id`: Your Datalix service ID.
-- `api_token`: Your Datalix API token.
-- `base_url`: The base URL for the Datalix API.
-- `status_descriptions`: A list containing status descriptions for different server statuses.
+- Replace the following placeholders with your own information:
 
-## Usage
-
-Here's the updated usage guide with the usage of the `screen` service for Linux:
+  - `webhook`: The Discord webhook where notifications should be sent.
+  - `service_id`, `callcenter`: Your specific service ID and callcenter ID (Datalix API Token).
+  - Additional configurable variables and messages can be customized.
 
 ## Usage
 
-1. Open a terminal or command prompt on your Linux server.
-2. Navigate to the directory containing the script.
-3. Start a `screen` session to run the script in the background:
-   ```bash
-   screen -S monitoring
-   ```
-4. Execute the script using the following command:
-   ```bash
-   python3 main.py
-   ```
-5. The script will start monitoring the server status continuously and send notifications through the Discord webhook on changes.
-6. Press `Ctrl + A` and then `D` to detach from the `screen` session and leave the script running in the background.
+Run the script, for example, with the command:
 
-To later return to view the status of the script or to stop it, use the following command:
-
-```bash
-screen -r monitoring
+```
+python main.py
 ```
 
-If you want to stop the script while within the `screen` session, press `Ctrl + C` to terminate the script and then `Ctrl + D` to exit the `screen` session.
-
-Using `screen` allows you to run the script in the background and later reattach to the `screen` session to view the status or stop the script without keeping an active terminal session open.
-
-## Features
-
-The script includes the following functions:
-
-- `get_server_status`: Retrieves the server status from the Datalix API.
-- `get_server_ip`: Retrieves the server IP address from the Datalix API.
-- `send_discord_embed`: Sends a Discord webhook with status information.
-- `main`: The main asynchronous function that performs monitoring.
+The script will now start monitoring the server status and send notifications when changes are detected.
 
 ## Customization
 
-You can customize the script to fit your needs, such as adjusting the frequency of checks or displaying additional information in the notifications.
+You can customize the script to fit your specific requirements by editing the functions in the `main.py` file.
 
-Feel free to create a pull request if you encounter any issues.
+## License
 
-## Example Notification
+This project is licensed under the MIT License. For more information about the MIT License, see [here](https://opensource.org/licenses/MIT).
 
-![Example Notification](https://cdn.discordapp.com/attachments/1139948214120886292/1140386807809331200/VXxeBu6UzgqO.png)
+## Disclaimer
 
-## Why This Script?
+Disclaimer and Legal Notices:
 
-Monitoring server status is crucial to ensuring smooth server operations. By using this script, you can react to issues early on. Notifications allow you to promptly address potential problems and maintain server availability.
+The use of this script is solely at the user's own risk and is strictly on an "as is" basis. Any liability of the author for direct or indirect damages, including but not limited to loss of profits, data loss, or business interruptions that may arise from the use of this script, is hereby rigorously excluded.
 
-## How It Works
+The script is provided to the user with no express or implied warranties of any kind. The author expressly disclaims any warranty, whether express or implied, including but not limited to merchantability or fitness for a particular purpose.
 
-The script utilizes the Datalix API to check your server's status. It regularly fetches the current status and IP address, comparing them to the previous status. On changes, a Discord webhook message with relevant information is sent. Information includes the IP address, timestamp, status, and any error messages if applicable.
+It is solely the responsibility of the user to ensure that the use of this script complies with all applicable laws and regulations. The author assumes no responsibility for any legal consequences that may arise from the use of this script, including potential violations of copyrights, privacy policies, or other legal provisions.
 
-## Example Use Case
+The author of this script accepts no liability for legal violations that may result from the use of this script.
 
-Here's an example of how you could use the script:
+The author reserves the right, at their discretion, to make changes to the script or terminate support, should it be deemed necessary for legal, technical, or other compelling reasons.
 
-1. Start the script on a server or a device that runs continuously.
-2. Customize the configuration variables to input your API credentials and Discord webhook URL.
-3. Execute the script.
-4. Monitor the Discord channel where notifications are sent. You'll receive notifications on status changes.
+---
 
-## Error Handling
+## Developer
 
-The script incorporates error-handling mechanisms. If the Datalix API is unreachable or a request fails, it will be logged. Regularly check the console output to ensure everything is functioning correctly.
+- [AsylantenCeo](https://github.com/asylceo)
 
-## Notes
+## Contributors
 
-- Ensure that you keep your Datalix API token and Discord webhook URL secure and private.
-- This script is provided "as is" and can be adapted based on your specific use case.
+- FlorianGH Datalix Owner
 
-*coded with ❤️ by AsylantenCeo*
-```
+## Thanks
+
+Thanks to everyone who contributed to this project.
