@@ -1,3 +1,5 @@
+# OLD VERSION 
+
 # Server Status Monitor with Discord Notifications
 
 This Python script allows you to monitor the status of a server and receive updates through Discord webhooks. It utilizes the AIOHTTP library for asynchronous HTTP requests, providing an easy way to keep track of important server information.
