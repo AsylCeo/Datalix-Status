@@ -1,199 +1,402 @@
-import json
-import aiohttp
-import asyncio
-import time
-import subprocess
 import datetime
+import time
+import requests
+import json
+from time import sleep
+from datetime import datetime
+import random
 
-webhook = 'https://canary.discord.com/api/webhooks/xxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-service_id = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-callcenter = 'xxxxxxxxxxxxxxxxxxxxxxxxxx' # API token
-kadse = 'https://backend.datalix.de/v1/service/'
-breached_vc = 'https://backend.datalix.de/v1/user/apikey/'
+useIPv4AsName = True
 
-status_eisen_stange_zerschlagen = {
-    "stopping": "Der Server wird mit einer Eisenstange gewaltsam zur Vernunft gebracht.",
-    "shutdown": "The server is shut down.",
-    "starting": "Server is starting...",
-    "running": "Server Online.",
-    "stopped": "Server offline.",
-    "installing": "Service is installing.",
-    "restorebackup": "Backup is being imported. (Layer8)",
-    "backupplanned": "Backup planned.",
-    "restoreplanned": "Service has a restore planned.",
-    "createbackup": "Service create a backup",
-    "error": "Proxmox skill issue",
+data = [{
+    "name": "KVM-01",
+    "token": "YOUR API TOKEN",
+    "service": "YOUR SERVICE ID",
+    "webhook": "YOUR DISCORD WEBHOOK FÜR STAUTS CHANGES",
+    "alerts": "YOUR DISCORD API FOR DDOS LOGS",
+    "lastState": "",  # placeholder, will get filled by the script
+    "ipv4": None,
+}]
+
+rqDelay = len(data) + 2 or 2  # default 2 sec per service 2 sec delay (ratelimit is 30rq/60sec)
+
+colors = {
+    "green": 0x00FF00,
+    "yellow": 0xFFFF00,
+    "orange": 0xFFAA00,
+    "red": 0xFF0000,
+    "gray": 0x696969,
+    "blue": 0x0000FF,
+    "lightblue": 0x00ffff,
+    "violet": 0x6900FF,
 }
 
-def get_lefishe(endpoint):
-    if endpoint:
-        return f'{kadse}{service_id}/{endpoint}?token={callcenter}'
-    else:
-        return f'{kadse}{service_id}?token={callcenter}'
+api_state_desc = {
+    "stopping": {"desc": "Stopping.", "color": colors["orange"]},
+    "shutdown": {"desc": "Shutting down", "color": colors["yellow"]},
+    "starting": {"desc": "Starting...", "color": colors["lightblue"]},
+    "running": {"desc": "Online", "color": colors["green"]},
+    "stopped": {"desc": "Offline", "color": colors["red"]},
+    "installing": {"desc": "Service is installing", "color": colors["lightblue"]},
+    "backupplanned": {"desc": "Backup planned", "color": colors["violet"]},
+    "restorebackup": {"desc": "Backup is being imported. (Layer8)", "color": colors["violet"]},
+    "createbackup": {"desc": "Creating Backup", "color": colors["violet"]},
+    "restoreplanned": {"desc": "Has a restore planned.", "color": colors["violet"]},
+    "preorder": {"desc": "Preorded", "color": colors["blue"]},
+    "deletedService": {"desc": "Service got permanently deleted", "color": colors["red"]},
+    "error": {"desc": "API responded with an 'error'", "color": colors["red"]},
+    "unk": {"desc": "No data", "color": colors["gray"]},
+}
 
-async def send_discord_embed_aiohttp(embed_data):
-    if embed_data:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(webhook, json={"embeds": [embed_data]}) as response:
-                if response.status != 200:
-                    print(f"Fehler beim Senden: {response.status}")
-    else:
-        print("Embed-Daten sind leer, Nachricht kann nicht gesendet werden.")
+# Sleeps for the specified number of milliseconds
+def sleep_ms(ms):
+    sleep(ms / 1000.0)
 
-async def skid_api_response(session, url):
-    try:
-        async with session.get(url) as response:
-            response.raise_for_status()
-            return await response.json()
-    except aiohttp.ClientResponseError as http_error:
-        print("API-Anfragefehler:", http_error)
-        print(f"Statuscode: {http_error.status}")
-        return None
 
-async def sex_with_server_status(session):
-    headers = {
-        "user-agent": "Mozilla/5.0 domis router lass mich durch asyl holt daten ab"
+user_agents_list = [
+    "Datalix Status",
+]
+
+# Funktion zum zufälligen Auswählen eines User Agents aus der Liste
+def get_random_user_agent():
+    return random.choice(user_agents_list)
+
+# Funktion zum Senden von API-Anfragen mit einem zufälligen User-Agent
+def send_request(url):
+    userAgent = get_random_user_agent()  # Setze den zufälligen User-Agent für diese Anfrage
+    headers = {'User-Agent': userAgent}
+    response = requests.get(url, headers=headers)
+    request_id(response, url)  # Hier wird die Funktion request_id mit der aktuellen response aufgerufen
+    return response
+
+def get_random_user_agent():
+    return random.choice(user_agents_list)
+
+
+def request_id(response, endpoint):
+    request_id = response.headers.get('x-request-id', 'N/A')
+    timestamp = datetime.utcnow().isoformat()
+
+    separator = "#" * 60
+    log_entry = (
+        f"\n{separator}\n"
+        f"Timestamp: {timestamp}\n"
+        f"Endpoint: {endpoint}\n"
+        f"x-request-id: {request_id}\n"
+        f"HTTP Status Code: {response.status_code}\n"
+        f"User Agent: {response.request.headers['User-Agent']}\n"
+    )
+
+    # Nur den Textformat der API-Antwort protokollieren, nicht das JSON-Format
+    response_text = response.text.encode('utf-8').decode('utf-8')
+    log_entry += f"Response (Text):\n{response_text}\n{separator}\n"
+
+    with open('./debug.log', 'a', encoding='utf-8') as log_file:
+        log_file.write(log_entry)
+
+
+
+
+
+# Sends an embed message to a Discord webhook with specified details
+def send_embed(title, details, index, color, webhook, request_id=None):
+    out = {
+        "author": {
+            "name": "Datalix",
+            "icon_url": "https://cdn.discordapp.com/emojis/1176196317781966920.gif?size=96&quality=lossless",
+            "url": f"https://datalix.de/cp/service/{data[index]['service']}",
+        },
+        "thumbnail": {
+            "url": "https://cdn.discordapp.com/emojis/1176196317781966920.gif?size=96&quality=lossless",
+        },
+        "title": title or "Server Status Update",
+        "url": f"https://datalix.de/cp/service/{data[index]['service']}",
+        "color": color,
+        "fields": details,
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    url = get_lefishe('status')
-    return await skid_api_response(session, url)
 
-cached_ip = None
-last_ip_fetch_time = None
+    headers = {"Content-type": "application/json"}
 
-async def get_ip(session):
-    global cached_ip, last_ip_fetch_time
+    payload = {
+        "content": "",
+        "username": "Datalix",
+        "avatar_url": "https://cdn.discordapp.com/emojis/1176196317781966920.gif?size=96&quality=lossless",
+        "embeds": [out],
+    }
 
-    if cached_ip is None or (last_ip_fetch_time is not None and (datetime.datetime.now() - last_ip_fetch_time).total_seconds() >= 12 * 3600):
-        headers = {
-            "user-agent": "Mozilla/5.0 domis router lass mich durch asyl holt daten ab"
-        }
-        url = get_lefishe('ip')
-        try:
-            async with session.get(url, headers=headers) as response:
-                response.raise_for_status()
-                ip_data = await response.json()
-                ipv4 = ip_data.get("ipv4", [])
-                if ipv4:
-                    cached_ip = ipv4[0].get("ip", "IP nicht verfügbar")
-                    last_ip_fetch_time = datetime.datetime.now()
-                    return cached_ip
-                else:
-                    return "IP nicht verfügbar"
-        except aiohttp.ClientResponseError as e:
-            print(f"Fehler beim Abrufen der Server-IP: {e}")
-            if cached_ip is not None:
-                return cached_ip
+    response = requests.post(webhook, json=payload, headers=headers)
 
-    return cached_ip
+    print(f"Status update for {data[index]['name']} | DDoS or Status")
 
-async def get_api_key_data(session):
-    url = f'{breached_vc}{callcenter}?token={callcenter}'
-    data = await skid_api_response(session, url)
+# Constructs the URL for making API requests based on the specified index and optional URL path
 
-    if data:
-        user_info = data.get("userInfo", {})
-        credit_str = user_info.get("credit", "0").replace(',', '.')
-        credit_in_euro = round(float(credit_str), 2) 
-        
-        expire_at_unix = data.get("expire_at", 0)
-        expire_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(expire_at_unix))
-        
-        created_on_unix = user_info.get("created_on", 0)
-        created_on = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_on_unix))
-        
-        email = user_info.get("email", "")
-        email_parts = email.split("@")
-        email_hidden = email_parts[0][:3] + "###" + "@" + email_parts[1]
-        
-        return {
-            "username": user_info.get("username", "failed gived"),
-            "email": email_hidden,
-            "credit": f"{credit_in_euro} €",
-            "created_on": created_on,
-            "expire_at": expire_at
-        }
+def sex_url(index, url=None):
+    endpoint = f"https://backend.datalix.de/v1/service/{data[index]['service']}"
+    if url:
+        endpoint += f"/{url}?token={data[index]['token']}"
+    else:
+        endpoint += f"?token={data[index]['token']}"
+    return endpoint
 
-previous_status = None
 
-async def main(): 
-    global previous_status 
+# Retrieves the IPv4 address for a service and updates the corresponding data entry
+def le_get_ip(index):
+    userAgent = get_random_user_agent()  # Setze den zufälligen User-Agent für diese Anfrage
+    headers = {'User-Agent': userAgent}
 
-    async with aiohttp.ClientSession() as session:
-        while True:
-            start_time = time.time()
+    response = requests.get(sex_url(index, "ip"), headers=headers)
+    request_id(response, sex_url(index, "ip"))
+    response_data = response.json()
 
-            server_status = await sex_with_server_status(session)
-            ip_address = await get_ip(session)
-            api_key_data = await get_api_key_data(session)
+    if not response_data or response.status_code != 200 or (not response_data["ipv4"][0] or not response_data["ipv4"][0]["ip"]):
+        if data[index]["ipv4"] is None:
+            data[index]["ipv4"] = "Error getting IPv4."
+        data[index]["name"] = "Error getting IPv4."
+        return
 
-            end_time = time.time()
+    data[index]["ipv4"] = response_data["ipv4"][0]["ip"]
+    data[index]["name"] = data[index]["ipv4"]
 
-            if server_status:
-                current_status = server_status['status']
-                ip_address = await get_ip(session)
-                current_time = time.strftime('%Y-%m-%d %H:%M:%S')
-                duration = (end_time - start_time) * 1000
 
-                headers = {
-                    "user-agent": "Mozilla/5.0 domis router lass mich durch asyl holt daten ab",
-                    "accept": "application/json"
-                }
-                response = await session.get(get_lefishe(''), headers=headers)
-                data = await response.json()
-                product_data = data.get("product", {})
-                service_data = data.get("service", {})
+most_occuring_method = {}
+most_occuring_method_sent = False
 
-                service_info = {
-                    "Lock Reason": service_data.get("lockreason", "Nicht verfügbar"),
-                    "node": product_data.get("node", "Nicht verfügbar"),
-                    "Datacenter": product_data.get("location", "Nicht verfügbar"),
-                    "Cluster": product_data.get("cluster", "Nicht verfügbar"),
-                }
+# Processes DDoS logs for a specified service index and sends a Discord embed if there's a new DDoS attack
+def ddos_logs(index):
+    global last_sent_creation_time
 
-                customer_info_embed = {
-                    "title": "Server Status Update",
-                    "description": status_eisen_stange_zerschlagen.get(current_status, "Unbekannter Status"),
-                    "color": 0x00FF00,  
-                    "thumbnail": {
-                        "url": "https://cdn.discordapp.com/emojis/1155264718408265838.gif?size=96&quality=lossless"
-                    },
-                    "fields": [
-                        {"name": "IP Address", "value": ip_address, "inline": False},
-                        {"name": "Status Code", "value": current_status, "inline": False},
-                        {"name": "Current Time", "value": current_time, "inline": False}
-                    ]
-                }
+    userAgent = get_random_user_agent()  # Setze den zufälligen User-Agent für diese Anfrage
+    headers = {'User-Agent': userAgent}
 
-                customer_info_embed["author"] = {
-                    "name": "AsylantenCeo",
-                    "url": "https://asyloperations.xyz",
-                    "icon_url": "https://cdn.discordapp.com/emojis/943540250133811241.webp?size=96&quality=lossless"
-                }
+    response = requests.get(sex_url(index, "incidents"), headers=headers)
+    request_id(response, sex_url(index, "incidents"))
+    response_data = response.json()
+    
+    try:
+        if response.status_code == 429:
+            print(f"Ratelimited, new delay: {rqDelay} | {response.text}")
+            return
+        if response.status_code == 403:
+            if "Ihre Dienstleistung wurde unwiederruflich" not in json.dumps(response.text):
+                print(f"Forbidden: {response.status_code} | {response.text}")
+                return
+        if response.status_code != 200:
+            print(f"HTTP error: {response.status_code}")
+            print(response.text)
+            return response.status_code
+        if not response_data:
+            print("No data returned")
+            return
 
-                if duration:
-                    customer_info_embed["fields"].append({"name": "Response Time API", "value": f"{duration:.2f} ms", "inline": False})
+        if response_data and response_data["data"] and len(response_data["data"]) > 0:
+            latest_creation_time = response_data["data"][0]["created_on"]
+            global most_occuring_method_sent  
+            if last_sent_creation_time != latest_creation_time:
+                embed_details = [
+                    f"**IP Address:** {response_data['data'][0]['ip']}",
+                    f"**Mbps:** {response_data['data'][0]['mbps']}",
+                    f"**PPS:** {response_data['data'][0]['pps']}",
+                    f"**Mode:** {response_data['data'][0]['mode']}",
+                    f"**Attack Method:** {response_data['data'][0]['method']}",
+                    f"**Most Occurring Attack Method:** {find_most_occuring_method(response_data['data'])}",
+                    f"**Total Attacks:** {len(response_data['data'])}",
+                    f"**Created On:** {latest_creation_time}",
+                ]
+
                 
-                service_info_text = "\n".join([f"**{key}:** {value}" for key, value in service_info.items()])
-                customer_info_embed["fields"].append({"name": "Service Information", "value": service_info_text, "inline": False})
-                customer_info_embed["footer"] = {"text": "Powered by Asyloperations"}
-                customer_info_embed["fields"].extend([
-                    {"name": "Customer Information", "value": f"Username: {api_key_data['username']}\n"
-                                                              f"Email: {api_key_data['email']}\n"
-                                                              f"Credit: {api_key_data['credit']}\n"
-                                                              f"Created On: {api_key_data['created_on']}\n"
-                                                              f"Expire At: {api_key_data['expire_at']}",
-                     "inline": False}
-                ])
+                latest_attack_method = response_data["data"][0]["method"]
+                if latest_attack_method not in most_occuring_method:
+                    most_occuring_method[latest_attack_method] = 1
+                else:
+                    most_occuring_method[latest_attack_method] += 1
 
-                if current_status != previous_status:
-                    await send_discord_embed_aiohttp(customer_info_embed)
+                send_embed("DDoS Attack alert", [{"name": f"Service: {data[index]['name']}", "value": "\n".join(embed_details)}], index, 0x00FF69, data[index]["alerts"])
+                last_sent_creation_time = latest_creation_time
+                most_occuring_method_sent = True
+    except Exception as e:
+        print(e)
 
-                previous_status = current_status            
-            else:
-                print('Fehler beim Abrufen des Serverstatus.')
+last_sent_creation_time = ""
 
-            await asyncio.sleep(2)
+# Processes status logs for a specified service index and sends a Discord embed if there's a status update
+def ddos_logs(index, headers):
+    global last_sent_creation_time
+
+    response = requests.get(sex_url(index, "incidents"), headers=headers)
+    request_id(response, sex_url(index, "incidents"))
+    response_data = response.json()
+    try:
+        if response.status_code == 429:
+            print(f"Ratelimited, new delay: {rqDelay} | {response.text}")
+            return
+        if response.status_code == 403:
+            if "Ihre Dienstleistung wurde unwiederruflich" not in json.dumps(response.text):
+                print(f"Forbidden: {response.status_code} | {response.text}")
+                return
+        if response.status_code != 200:
+            print(f"HTTP error: {response.status_code}")
+            print(response.text)
+            return response.status_code
+        if not response_data:
+            print("No data returned")
+            return
+
+        if response_data and response_data["data"] and len(response_data["data"]) > 0:
+            latest_creation_time = response_data["data"][0]["created_on"]
+            global most_occuring_method_sent  
+            if last_sent_creation_time != latest_creation_time:
+                embed_details = [
+                    f"**IP Address:** {response_data['data'][0]['ip']}",
+                    f"**Mbps:** {response_data['data'][0]['mbps']}",
+                    f"**PPS:** {response_data['data'][0]['pps']}",
+                    f"**Mode:** {response_data['data'][0]['mode']}",
+                    f"**Attack Method:** {response_data['data'][0]['method']}",
+                    f"**Most Occurring Attack Method:** {find_most_occuring_method(response_data['data'])}",
+                    f"**Total Attacks:** {len(response_data['data'])}",
+                    f"**Created On:** {latest_creation_time}",
+                ]
+
+                
+                latest_attack_method = response_data["data"][0]["method"]
+                if latest_attack_method not in most_occuring_method:
+                    most_occuring_method[latest_attack_method] = 1
+                else:
+                    most_occuring_method[latest_attack_method] += 1
+
+                send_embed("DDoS Attack alert", [{"name": f"Service: {data[index]['name']}", "value": "\n".join(embed_details)}], index, 0x00FF69, data[index]["alerts"])
+                last_sent_creation_time = latest_creation_time
+                most_occuring_method_sent = True
+    except Exception as e:
+        print(e)
+
+
+def status_logs(index, headers):
+    try:
+        start_time = time.time() 
+        response = requests.get(sex_url(index), headers=headers)
+        request_id(response, sex_url(index))
+        response_data = response.json() 
+        end_time = time.time() 
+
+       
+        traffic_limit = "No"
+
+        if response.status_code == 429:
+            print(f"Ratelimited, new delay: {rqDelay} | {response.text}")
+            return
+        if response.status_code == 403:
+            if "Ihre Dienstleistung wurde unwiederruflich" not in json.dumps(response.text):
+                print(f"Forbidden: {response.status_code} | {response.text}")
+                return
+            if data[index]["lastState"] == "deleted":
+                return
+            embed_data = [
+                {"name": "Service", "value": data[index]["name"]},
+                {"name": "Status", "value": api_state_desc["deletedService"]["desc"]},
+            ]
+            send_embed("Server Status Update", embed_data, index, api_state_desc["deletedService"]["color"], data[index]["webhook"])
+            data[index]["lastState"] = "deleted"
+            return
+        if response.status_code != 200:
+            print(f"HTTP error: {response.status_code}")
+            print(response.text)
+            return response.status_code
+        if not response_data:
+            print("No data returned")
+            return
+
+        api_response_time = round((end_time - start_time) * 1000)
+        
+        additional_details = ""
+        locked = "No"
+        state = {"name": response_data["product"]["status"], "color": api_state_desc["unk"]["color"]}
+        if response_data["service"]["daysleft"] < 1:
+            response_data["service"]["daysleft"] = "none"
+        if response_data["service"]["locked"] != 0:
+            locked = f"Yes, {response_data['service']['lockreason']}" or "no info"
+        if response_data["product"]["trafficlimitreached"] != 0:
+            traffic_limit = "Yes" 
+
+        if response_data["product"]["status"] not in api_state_desc:
+            state["name"] = f"{api_state_desc['unk']['desc']} ({response_data['product']['status']})"
+        else:
+            if response_data["product"]["status"] == "uselast":
+                return 
+            state["name"] = api_state_desc[response_data["product"]["status"]]["desc"]
+            state["color"] = api_state_desc[response_data["product"]["status"]]["color"]
+        if data[index]["lastState"] == response_data["product"]["status"]:
+            return
+
+        data[index]["lastState"] = response_data["product"]["status"]
+
+       
+        if "node" in response_data["product"]:
+            additional_details += f"> **node**: {response_data['product']['node']}\n"
+        if "location" in response_data["product"]:
+            additional_details += f"> **datacenter**: {response_data['product']['location']}\n"
+        if "cluster" in response_data["product"]:
+            additional_details += f"> **cluster**: {response_data['product']['cluster']}\n"
+        if "trafficlimitreached" in response_data["product"]:
+            additional_details += f"> **Traffic Limit Reached**: {traffic_limit}\n" or "No\n"
+        additional_details += f"> **Locked**: {locked}\n"
+        additional_details += f"> **Days left**: {response_data['service']['daysleft'] or 'No data'} | **Price**: {response_data['service']['price']}€\n"
+        additional_details += f"> **API-Time**: {api_response_time:.5f}ms\n"
+
+        details = [
+            {"name": "Service", "value": data[index]["name"] or "No data"},
+            {"name": "Status", "value": state["name"]},
+            {"name": f"{response_data['service']['productdisplay']} informations", "value": additional_details},
+        ]
+
+        send_embed("Server Status Update", details, index, state["color"], data[index]["webhook"])
+    except Exception as e:
+        print(e)
+
+
+# Finds the most occurring attack method from a list of DDoS incidents
+def get_server_status(index):
+    try:
+        userAgent = get_random_user_agent()  # Setze den zufälligen User-Agent für diese Anfrage
+        headers = {'User-Agent': userAgent}
+
+        if useIPv4AsName and (data[index]["ipv4"] is None or data[index]["ipv4"] == "Error getting IPv4 address."):
+            le_get_ip(index)
+            sleep_ms(269) 
+        ddos_logs(index, headers)
+        status_logs(index, headers)
+    except Exception as e:
+        print(e)
+
+
+def find_most_occuring_method(api_data):
+    method_counts = {}
+
+    for entry in api_data:
+        method = entry["method"]
+        if method not in method_counts:
+            method_counts[method] = 1
+        else:
+            method_counts[method] += 1
+
+    most_occuring_method = max(method_counts, key=method_counts.get)
+
+    print(f"Most Occurring Attack Method: {most_occuring_method}")
+
+    return most_occuring_method
+
+# Main function that runs an infinite loop to periodically check and update server status
+def main():
+    try:
+        while True:
+            for i in range(len(data)):
+                request_id(requests.get(sex_url(i)), sex_url(i))
+                get_server_status(i)
+            sleep_ms(rqDelay * 4000)
+    except Exception as e:
+        print(e)
+
+# Entry point of the script
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    main()
