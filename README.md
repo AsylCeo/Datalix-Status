@@ -1,93 +1,76 @@
-# OLD VERSION 
-
-# Server Status Monitor with Discord Notifications
-
-This Python script allows you to monitor the status of a server and receive updates through Discord webhooks. It utilizes the AIOHTTP library for asynchronous HTTP requests, providing an easy way to keep track of important server information.
+Below is a refined and categorized GitHub README in English, incorporating your request for a project status announcement.
 
 ---
+
+# Datalix Server Status Monitor
 
 ## Table of Contents
 
-1. [**Overview**](#overview)
-2. [**Installation**](#installation)
-3. [**Configuration**](#configuration)
-4. [**Usage**](#usage)
-5. [**Customization**](#customization)
-6. [**License**](#license)
-7. [**Disclaimer**](#disclaimer)
-
----
+- [Overview](#overview)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Setup](#setup)
+- [Usage](#usage)
+- [How It Works](#how-it-works)
+- [Customization](#customization)
+- [Troubleshooting](#troubleshooting)
+- [Project Status](#project-status)
+- [Contributing](#contributing)
 
 ## Overview
 
-This script is designed to monitor server status and send notifications via Discord webhooks. It is particularly useful for administrators who need real-time information about their server.
+This Python script is designed for monitoring the status of servers managed by Datalix. It conducts periodic checks on server health, including DDoS attack logs, service status, and other critical metrics, and reports these statuses via Discord notifications. The script leverages the Datalix backend API for data retrieval and Discord webhooks for alert dispatching.
 
-## Installation
+## Features
 
-1. **Install Python and Pip**:
+- **Service Status Monitoring**: Checks and alerts for any changes in the operational status of servers.
+- **DDoS Attack Detection**: Monitors for DDoS attacks and provides detailed incident reports.
+- **Dynamic Delay Management**: Adjusts request intervals to comply with rate limits.
+- **Logging**: Maintains detailed logs of requests and responses for debugging and auditing.
+- **Customizable Notifications**: Sends tailored Discord notifications containing server status and DDoS attack details.
 
-   Ensure that Python and Pip are installed on your system.
+## Requirements
 
-2. **Install Dependencies**:
+- Python 3.x
+- The `requests` library for API requests
+- The `json` library for parsing and handling JSON data
 
-   Open the command line and enter the following command:
+## Setup
 
+1. **Install Dependencies**: Ensure Python 3.x is installed on your system. Then, use pip to install the required Python packages:
+
+   ```bash
+   pip3 install requests json datetime random
    ```
-   pip install aiohttp
-   ```
 
-## Configuration
-
-- Open the `main.py` file.
-
-- Replace the following placeholders with your own information:
-
-  - `webhook`: The Discord webhook where notifications should be sent.
-  - `service_id`, `callcenter`: Your specific service ID and callcenter ID (Datalix API Token).
-  - Additional configurable variables and messages can be customized.
+2. **Configuration**: Modify the `data` list within the script to include your server details, such as server name, API token, service ID, and Discord webhook URLs for status changes and DDoS logs.
 
 ## Usage
 
-Run the script, for example, with the command:
+Execute the script with Python:
 
-```
-python main.py
+```bash
+python3 main.py
 ```
 
-The script will now start monitoring the server status and send notifications when changes are detected.
+## How It Works
+
+The script iterates over each server defined in the `data` list, making API calls to the Datalix backend to fetch the current status and DDoS logs. Based on the responses, it processes the information, updates the last known status, and determines if there are any new DDoS attacks. Detected status changes or new attacks trigger Discord notifications. All requests and responses are logged.
 
 ## Customization
 
-You can customize the script to fit your specific requirements by editing the functions in the `main.py` file.
+- **Request Interval**: Modify the `rqDelay` variable to change the delay between API requests, accommodating different rate limit requirements.
+- **Notification Colors**: Adjust the `colors` dictionary to alter the color scheme of Discord notifications.
+- **User Agents**: Update the `user_agents_list` to use different User-Agent headers in requests.
 
-## License
+## Troubleshooting
 
-This project is licensed under the MIT License. For more information about the MIT License, see [here](https://opensource.org/licenses/MIT).
+Ensure your API tokens and service IDs are correctly configured, check the Discord webhook URLs for accuracy and permissions, and review the `debug.log` file for error messages and request/response details.
 
-## Disclaimer
+## Project Status
 
-Disclaimer and Legal Notices:
+This project is no longer maintained by me and represents the last update. The community is warmly invited to take over the project and further develop it. Forks can be created, and Pull Requests submitted for those interested.
 
-The use of this script is solely at the user's own risk and is strictly on an "as is" basis. Any liability of the author for direct or indirect damages, including but not limited to loss of profits, data loss, or business interruptions that may arise from the use of this script, is hereby rigorously excluded.
+## Contributing
 
-The script is provided to the user with no express or implied warranties of any kind. The author expressly disclaims any warranty, whether express or implied, including but not limited to merchantability or fitness for a particular purpose.
-
-It is solely the responsibility of the user to ensure that the use of this script complies with all applicable laws and regulations. The author assumes no responsibility for any legal consequences that may arise from the use of this script, including potential violations of copyrights, privacy policies, or other legal provisions.
-
-The author of this script accepts no liability for legal violations that may result from the use of this script.
-
-The author reserves the right, at their discretion, to make changes to the script or terminate support, should it be deemed necessary for legal, technical, or other compelling reasons.
-
----
-
-## Developer
-
-- [AsylantenCeo](https://github.com/asylceo)
-
-## Contributors
-
-- FlorianGH Datalix Owner
-
-## Thanks
-
-Thanks to everyone who contributed to this project.
+Contributions to improve the project are always welcome, even though it is not actively maintained by the original author. Feel free to fork the project and submit your contributions through Pull Requests.
