@@ -1,7 +1,3 @@
-Below is a refined and categorized GitHub README in English, incorporating your request for a project status announcement.
-
----
-
 # Datalix Server Status Monitor
 
 ## Table of Contents
